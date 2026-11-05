@@ -16,7 +16,7 @@ A aplicação exige conexão para dados meteorológicos. Não haverá autentica�
 - **Dados meteorológicos:** Open-Meteo Geocoding API e Forecast API, sem API key.
 - **Testes:** Vitest + Testing Library para testes unitários; Playwright para testes end-to-end (E2E).
 - **Lint e formatação:** Biome.
-- **Persistência do histórico:** recomendação de `localStorage`, sem backend; confirmar retenção e opção de limpeza antes da implementação.
+- **Persistência do histórico:** `localStorage` neste navegador, até ser apagado pelo usuário ou pelo navegador; manter no máximo cinco cidades e oferecer ação de limpeza.
 
 ## Project Structure
 
@@ -103,7 +103,7 @@ Usar `useWeather` como dono do estado assíncrono da consulta: resultados de geo
 
 A unidade selecionada fica em estado local da aplicação; Celsius é o padrão. Não incluir unidade em requisições nem duplicar dados convertidos no estado.
 
-`useSearchHistory` encapsula leitura, deduplicação por `City.id` e atualização do histórico por meio de `searchHistory` service. Componentes não acessam `localStorage` diretamente. Recomenda-se persistência local por ausência de backend, mas duração, limite de itens e ação de apagar permanecem decisões a confirmar.
+`useSearchHistory` encapsula leitura, deduplicação por `City.id` e atualização do histórico por meio de `searchHistory` service. Componentes não acessam `localStorage` diretamente. O histórico mantém até cinco cidades consultadas com sucesso, sem expiração automática, e pode ser apagado na interface.
 
 ## Error Handling
 
@@ -131,7 +131,7 @@ A unidade selecionada fica em estado local da aplicação; Celsius é o padrão.
 | API pública indisponível, lenta ou com contrato alterado | Busca ou consulta pode falhar | Timeout, validação/mapeamento isolados, mensagens claras, retry e testes com payloads simulados. |
 | Cobertura de geocoding ou desambiguação imprecisa | Usuário pode escolher cidade errada | Filtrar por Brasil e mostrar estado; validar casos de nomes duplicados. |
 | Previsão de cinco dias exige descartar hoje | Erro de timezone pode exibir período incorreto | Usar timezone da resposta da Open-Meteo e testar mudança de data/fuso. |
-| Histórico em `localStorage` é apenas deste navegador/dispositivo | Sem sincronização e sujeito a limpeza do navegador | Manter como recomendação explícita; confirmar retenção, limite e remoção com produto. |
+| Histórico em `localStorage` é apenas deste navegador/dispositivo | Sem sincronização e sujeito a limpeza do navegador | Informar a persistência local e oferecer remoção explícita; manter até cinco cidades sem expiração automática. |
 | “Todos os navegadores” não define versões | Não há critério objetivo para validar compatibilidade | Definir matriz de browsers/versões antes da fase de testes. |
 | API direta no browser reduz infraestrutura, mas depende de rede e disponibilidade externa | Sem funcionamento offline ou cache de servidor | Alinhar a expectativa do usuário; offline está fora do escopo. |
 | Tema escuro glassmorphism pode prejudicar contraste ou leitura | Acessibilidade inferior | Verificar contraste, foco visível e legibilidade em fundos/transparências. |
@@ -140,6 +140,6 @@ A unidade selecionada fica em estado local da aplicação; Celsius é o padrão.
 
 1. Ajustar geocoding para filtrar Brasil e limitar a três resultados; tornar seleção explícita quando houver homônimos.
 2. Atualizar tipos e service para os campos meteorológicos definidos e para cinco dias a partir de amanhã, validando dados externos.
-3. Implementar histórico via service e hook; confirmar previamente persistência, retenção e remoção.
+3. Implementar histórico via service e hook conforme política local, limite e remoção definidos.
 4. Integrar loading, empty, error/retry e sucesso na UI, incluindo conversão de unidade sem nova consulta.
 5. Validar layout mobile-first, acessibilidade e cobertura com os comandos da estratégia de testes.

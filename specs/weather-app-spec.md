@@ -38,7 +38,7 @@ para testes unitários e Playwright para testes end-to-end.
 - Após selecionar uma cidade, a tela identifica a cidade e apresenta temperatura atual, condição, vento e precipitação.
 - A previsão apresenta cinco dias completos começando no dia seguinte à data atual, com mínimas, máximas, condição, vento e precipitação por dia.
 - Celsius é a unidade inicial. Alternar para Fahrenheit atualiza todas as temperaturas da tela; voltar para Celsius restaura a apresentação nessa unidade.
-- As cidades buscadas aparecem no histórico. O meio de armazenamento e o período de retenção estão pendentes de definição.
+- Cidades consultadas com sucesso aparecem no histórico local, limitado às cinco mais recentes; não expiram automaticamente e podem ser apagadas pelo usuário.
 - Uma falha da API ou de conexão apresenta uma mensagem de erro e permite tentar novamente; a aplicação não apresenta dados inventados como se fossem atuais.
 - A busca, a consulta e a alternância de unidade continuam utilizáveis em telas móveis e desktop, sem perda ou sobreposição de conteúdo.
 - A interface e as mensagens ao usuário são apresentadas em português.
@@ -70,7 +70,7 @@ para testes unitários e Playwright para testes end-to-end.
 - O público consulta cidades brasileiras e seleciona a cidade manualmente.
 - A aplicação depende de internet para buscar dados da Open-Meteo.
 - A interface será oferecida somente em português.
-- O histórico de busca faz parte do produto, mas armazenamento, retenção e remoção ainda não foram definidos.
+- O histórico de busca é armazenado somente neste navegador; não há sincronização entre dispositivos.
 - Não há metas de desempenho definidas.
 - A aplicação não exige login para as funcionalidades especificadas.
 
@@ -97,8 +97,7 @@ para testes unitários e Playwright para testes end-to-end.
 ## Open Questions
 
 1. Quais versões de navegadores compõem a matriz de compatibilidade esperada?
-2. O histórico será armazenado localmente ou em servidor, por quanto tempo e haverá opção para apagá-lo?
-3. Qual formato de data e fuso horário serão usados para os dias da previsão?
+2. Qual formato de data e fuso horário serão usados para os dias da previsão?
 4. Quais detalhes a mensagem de erro deve apresentar além da ação de tentar novamente?
 
 ## Arquitetura de Referência

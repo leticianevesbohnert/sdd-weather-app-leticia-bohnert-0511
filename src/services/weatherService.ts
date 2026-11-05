@@ -45,7 +45,14 @@ export async function searchCities(name: string): Promise<City[]> {
   const query = name.trim();
   if (!query) return [];
 
-  const url = `${GEOCODING_URL}?name=${encodeURIComponent(query)}&count=5&language=pt&format=json`;
+  const params = new URLSearchParams({
+    name: query,
+    count: '3',
+    countryCode: 'BR',
+    language: 'pt',
+    format: 'json',
+  });
+  const url = `${GEOCODING_URL}?${params.toString()}`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) {
     throw new WeatherServiceError('Não foi possível buscar a cidade. Tente novamente.');
@@ -67,42 +74,55 @@ export async function searchCities(name: string): Promise<City[]> {
 interface ForecastResponse {
   current?: {
     time: string;
-    temperature_2m: number;
-    relative_humidity_2m: number;
-    wind_speed_10m: number;
-    surface_pressure: number;
-    precipitation: number;
-    weather_code: number;
+    temperature_2m: number | null;
+    relative_humidity_2m: number | null;
+    wind_speed_10m: number | null;
+    surface_pressure: number | null;
+    precipitation: number | null;
+    weather_code: number | null;
   };
   daily?: {
     time: string[];
-    weather_code: number[];
-    temperature_2m_max: number[];
-    temperature_2m_min: number[];
-    precipitation_probability_max: (number | null)[];
+    weather_code?: (number | null)[];
+    temperature_2m_max?: (number | null)[];
+    temperature_2m_min?: (number | null)[];
+    wind_speed_10m_max?: (number | null)[];
+    precipitation_probability_max?: (number | null)[];
   };
 }
 
 function mapCurrent(c: NonNullable<ForecastResponse['current']>): CurrentWeather {
   return {
     time: c.time,
-    temperature: c.temperature_2m,
-    humidity: c.relative_humidity_2m,
-    windSpeed: c.wind_speed_10m,
-    pressure: c.surface_pressure,
-    precipitation: c.precipitation,
-    weatherCode: c.weather_code,
+    temperature: c.temperature_2m ?? null,
+    humidity: c.relative_humidity_2m ?? null,
+    windSpeed: c.wind_speed_10m ?? null,
+    pressure: c.surface_pressure ?? null,
+    precipitation: c.precipitation ?? null,
+    weatherCode: c.weather_code ?? null,
   };
 }
 
-function mapForecast(d: NonNullable<ForecastResponse['daily']>): ForecastDay[] {
-  return d.time.map((date, i) => ({
-    date,
-    weatherCode: d.weather_code[i],
-    max: d.temperature_2m_max[i],
-    min: d.temperature_2m_min[i],
-    precipitationProbability: d.precipitation_probability_max[i] ?? 0,
-  }));
+function valueAt(values: (number | null)[] | undefined, index: number): number | null {
+  return values?.[index] ?? null;
+}
+
+function mapForecast(
+  d: NonNullable<ForecastResponse['daily']>,
+  currentDate: string,
+): ForecastDay[] {
+  return d.time
+    .map((date, i) => ({ date, index: i }))
+    .filter(({ date }) => date > currentDate)
+    .slice(0, 5)
+    .map(({ date, index }) => ({
+      date,
+      weatherCode: valueAt(d.weather_code, index),
+      max: valueAt(d.temperature_2m_max, index),
+      min: valueAt(d.temperature_2m_min, index),
+      windSpeed: valueAt(d.wind_speed_10m_max, index),
+      precipitationProbability: valueAt(d.precipitation_probability_max, index),
+    }));
 }
 
 /**
@@ -116,8 +136,8 @@ export async function getWeather(city: City): Promise<WeatherData> {
     current:
       'temperature_2m,relative_humidity_2m,wind_speed_10m,surface_pressure,precipitation,weather_code',
     daily:
-      'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
-    forecast_days: '5',
+      'weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,precipitation_probability_max',
+    forecast_days: '6',
     timezone: 'auto',
   });
 
@@ -134,6 +154,6 @@ export async function getWeather(city: City): Promise<WeatherData> {
   return {
     city,
     current: mapCurrent(data.current),
-    forecast: mapForecast(data.daily),
+    forecast: mapForecast(data.daily, data.current.time.slice(0, 10)),
   };
 }

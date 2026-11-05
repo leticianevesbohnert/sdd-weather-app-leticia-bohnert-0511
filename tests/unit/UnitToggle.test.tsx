@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect } from 'vitest';
 import { useState } from 'react';
-import UnitToggle from '../../src/components/UnitToggle';
+import { describe, expect, it } from 'vitest';
 import CurrentWeather from '../../src/components/CurrentWeather';
+import UnitToggle from '../../src/components/UnitToggle';
 import type { City, CurrentWeather as CurrentWeatherType, Unit } from '../../src/types/weather';
 
 const city: City = {
@@ -38,10 +38,10 @@ function Harness() {
 describe('UnitToggle + CurrentWeather', () => {
   it('converte a temperatura ao alternar a unidade', async () => {
     render(<Harness />);
-    expect(screen.getByText('0°')).toBeInTheDocument();
+    expect(screen.getByText('0°C')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '°F' }));
-    expect(screen.getByText('32°')).toBeInTheDocument();
+    expect(screen.getByText('32°F')).toBeInTheDocument();
   });
 
   it('expõe os botões com estado pressionado acessível', () => {

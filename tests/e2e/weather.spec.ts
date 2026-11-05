@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 const geocoding = {
   results: [
@@ -24,11 +24,12 @@ const forecast = {
     weather_code: 3,
   },
   daily: {
-    time: ['2026-06-16', '2026-06-17', '2026-06-18', '2026-06-19', '2026-06-20'],
-    weather_code: [3, 61, 80, 1, 0],
-    temperature_2m_max: [20, 19, 22, 24, 25],
-    temperature_2m_min: [12, 11, 13, 14, 15],
-    precipitation_probability_max: [20, 90, 70, 10, 0],
+    time: ['2026-06-16', '2026-06-17', '2026-06-18', '2026-06-19', '2026-06-20', '2026-06-21'],
+    weather_code: [3, 61, 80, 1, 0, 2],
+    temperature_2m_max: [20, 19, 22, 24, 25, 23],
+    temperature_2m_min: [12, 11, 13, 14, 15, 14],
+    wind_speed_10m_max: [10, 11, 12, 13, 14, 15],
+    precipitation_probability_max: [20, 90, 70, 10, 0, 30],
   },
 };
 
@@ -47,12 +48,11 @@ test('fluxo completo: buscar → clima atual → previsão → trocar unidade', 
   await page.getByRole('button', { name: /buscar/i }).click();
 
   await expect(page.getByRole('heading', { name: 'Seattle' })).toBeVisible();
-  await expect(page.getByRole('region', { name: /previsão de 5 dias/i })).toBeVisible();
+  await expect(page.getByRole('region', { name: /previsão dos próximos 5 dias/i })).toBeVisible();
 
-  // 0°C exibido; após trocar para °F deve virar 32°.
-  await expect(page.getByText('0°').first()).toBeVisible();
+  await expect(page.getByText('0°C').first()).toBeVisible();
   await page.getByRole('button', { name: '°F' }).click();
-  await expect(page.getByText('32°').first()).toBeVisible();
+  await expect(page.getByText('32°F').first()).toBeVisible();
 });
 
 test('estado vazio quando a cidade não existe', async ({ page }) => {
@@ -73,4 +73,9 @@ test('viewport mobile renderiza o fluxo principal', async ({ page }) => {
   await page.getByLabel(/buscar cidade/i).fill('Seattle');
   await page.getByRole('button', { name: /buscar/i }).click();
   await expect(page.getByRole('heading', { name: 'Seattle' })).toBeVisible();
+  const { documentWidth, viewportWidth } = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }));
+  expect(documentWidth).toBeLessThanOrEqual(viewportWidth);
 });
