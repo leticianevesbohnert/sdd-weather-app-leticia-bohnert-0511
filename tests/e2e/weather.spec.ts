@@ -69,6 +69,7 @@ test('fluxo completo: buscar, consultar previsão, trocar unidade e reabrir hist
 
   await page.getByLabel(/buscar cidade/i).fill('Seattle');
   await page.getByRole('button', { name: /buscar/i }).click();
+  await page.getByRole('button', { name: 'Seattle, Washington, Estados Unidos' }).click();
 
   await expect(page.getByRole('heading', { name: 'Seattle' })).toBeVisible();
   await expect(page.getByRole('region', { name: /previsão dos próximos 5 dias/i })).toBeVisible();
@@ -122,6 +123,7 @@ test('permite tentar novamente após falha ao carregar o clima', async ({ page }
 
   await page.getByLabel(/buscar cidade/i).fill('Seattle');
   await page.getByRole('button', { name: /buscar/i }).click();
+  await page.getByRole('button', { name: 'Seattle, Washington, Estados Unidos' }).click();
   await expect(page.getByRole('alert')).toContainText('Não foi possível carregar o clima');
 
   await page.getByRole('button', { name: /tentar novamente/i }).click();
@@ -136,6 +138,7 @@ test('viewport mobile renderiza o fluxo principal', async ({ page }) => {
 
   await page.getByLabel(/buscar cidade/i).fill('Seattle');
   await page.getByRole('button', { name: /buscar/i }).click();
+  await page.getByRole('button', { name: 'Seattle, Washington, Estados Unidos' }).click();
   await expect(page.getByRole('heading', { name: 'Seattle' })).toBeVisible();
   const { documentWidth, viewportWidth } = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,

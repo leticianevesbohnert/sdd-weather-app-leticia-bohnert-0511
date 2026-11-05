@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../../src/App';
@@ -78,10 +78,11 @@ describe('App', () => {
 
   it('envia a busca por teclado e anuncia o estado de carregamento', async () => {
     const user = userEvent.setup();
+    const fetchMock = vi.fn();
     let resolveForecast: ((response: Response) => void) | undefined;
     vi.stubGlobal(
       'fetch',
-      vi.fn((input: RequestInfo | URL) => {
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
         if (String(input).includes('geocoding-api')) {
           return Promise.resolve({
             ok: true,
@@ -97,6 +98,10 @@ describe('App', () => {
 
     const search = screen.getByRole('textbox', { name: /buscar cidade/i });
     await user.type(search, 'São Paulo{Enter}');
+    expect(await screen.findByRole('region', { name: /resultados da busca/i })).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Selecione uma cidade');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'São Paulo, São Paulo, Brasil' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Carregando o clima');
     expect(search).toBeDisabled();
 
@@ -117,19 +122,22 @@ describe('App', () => {
     expect(results).toHaveTextContent('Cidades encontradas');
     expect(screen.getByRole('button', { name: 'São Paulo, São Paulo, Brasil' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'São Paulo, Amazonas, Brasil' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: /clima atual/i })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: /São Paulo, Amazonas, Brasil/i }));
+    expect(await screen.findByRole('region', { name: /clima atual/i })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /São Paulo, Amazonas, Brasil/i })).toHaveAttribute(
         'aria-pressed',
         'true',
       );
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     await user.click(screen.getByRole('button', { name: '°F' }));
     expect(screen.getByText('64°F')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(await screen.findByRole('heading', { name: 'Buscas recentes' })).toBeInTheDocument();
   });
 
@@ -155,6 +163,8 @@ describe('App', () => {
 
     await user.type(screen.getByRole('textbox', { name: /buscar cidade/i }), 'São Paulo');
     await user.click(screen.getByRole('button', { name: 'Buscar' }));
+    await screen.findByRole('region', { name: /resultados da busca/i });
+    await user.click(screen.getByRole('button', { name: 'São Paulo, São Paulo, Brasil' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar o clima');
 
     await user.click(screen.getByRole('button', { name: /tentar novamente/i }));
@@ -197,6 +207,8 @@ describe('App', () => {
 
     await user.type(screen.getByRole('textbox', { name: /buscar cidade/i }), 'São Paulo');
     await user.click(screen.getByRole('button', { name: 'Buscar' }));
+    await screen.findByRole('region', { name: /resultados da busca/i });
+    await user.click(screen.getByRole('button', { name: 'São Paulo, São Paulo, Brasil' }));
     await screen.findByRole('region', { name: /clima atual/i });
     await waitFor(() => {
       expect(window.localStorage.getItem('weatherview.search-history')).toContain('São Paulo');
@@ -211,5 +223,52 @@ describe('App', () => {
       await screen.findByText(/suas cidades consultadas aparecerão aqui/i),
     ).toBeInTheDocument();
     expect(window.localStorage.getItem('weatherview.search-history')).toBe('[]');
+  });
+
+  it('ignora respostas de clima antigas quando outra cidade é selecionada', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem('weatherview.search-history', JSON.stringify(cities));
+    const pendingForecasts = new Map<number, (response: Response) => void>();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === 'geocoding-api.open-meteo.com') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ results: cities }),
+          } as Response);
+        }
+        const latitude = Number(url.searchParams.get('latitude'));
+        return new Promise<Response>((resolve) => pendingForecasts.set(latitude, resolve));
+      }),
+    );
+    render(<App />);
+
+    const history = screen.getByRole('region', { name: /buscas recentes/i });
+    await user.click(within(history).getByRole('button', { name: /São Paulo, São Paulo/i }));
+    await waitFor(() => expect(pendingForecasts.size).toBe(1));
+    await user.click(within(history).getByRole('button', { name: /São Paulo, Amazonas/i }));
+    await waitFor(() => expect(pendingForecasts.size).toBe(2));
+
+    const firstForecast = { ...forecast, current: { ...forecast.current, temperature_2m: 10 } };
+    const latestForecast = { ...forecast, current: { ...forecast.current, temperature_2m: 22 } };
+    pendingForecasts.get(cities[1].latitude)?.({
+      ok: true,
+      json: async () => latestForecast,
+    } as Response);
+    const currentWeather = await screen.findByRole('region', { name: /clima atual/i });
+    expect(within(currentWeather).getByText('22°C')).toBeInTheDocument();
+
+    await act(async () => {
+      pendingForecasts.get(cities[0].latitude)?.({
+        ok: true,
+        json: async () => firstForecast,
+      } as Response);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(within(currentWeather).getByText('22°C')).toBeInTheDocument();
+    expect(within(currentWeather).queryByText('10°C')).not.toBeInTheDocument();
   });
 });

@@ -63,6 +63,12 @@ export default function App() {
 
         {status === 'loading' && <LoadingState />}
 
+        {status === 'selecting' && (
+          <p role="status" className="text-sm text-white/70">
+            Selecione uma cidade para consultar o clima.
+          </p>
+        )}
+
         {status === 'empty' && (
           <EmptyState
             title={`Nenhuma cidade encontrada para "${query}"`}
@@ -73,8 +79,9 @@ export default function App() {
         {status === 'error' && error && <ErrorState message={error} onRetry={retry} />}
 
         <SearchResults
-          cities={status === 'success' || status === 'error' ? cities : []}
+          cities={cities}
           selectedCityId={status === 'success' ? (data?.city.id ?? null) : null}
+          disabled={status === 'loading'}
           onSelect={selectCity}
         />
 
