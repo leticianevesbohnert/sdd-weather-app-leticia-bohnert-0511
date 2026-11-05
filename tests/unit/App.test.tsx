@@ -76,6 +76,35 @@ describe('App', () => {
     expect(screen.getByRole('group', { name: /unidade de temperatura/i })).toBeInTheDocument();
   });
 
+  it('envia a busca por teclado e anuncia o estado de carregamento', async () => {
+    const user = userEvent.setup();
+    let resolveForecast: ((response: Response) => void) | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input).includes('geocoding-api')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ results: [cities[0]] }),
+          } as Response);
+        }
+        return new Promise<Response>((resolve) => {
+          resolveForecast = resolve;
+        });
+      }),
+    );
+    render(<App />);
+
+    const search = screen.getByRole('textbox', { name: /buscar cidade/i });
+    await user.type(search, 'São Paulo{Enter}');
+    expect(await screen.findByRole('status')).toHaveTextContent('Carregando o clima');
+    expect(search).toBeDisabled();
+
+    if (!resolveForecast) throw new Error('A requisição de previsão não foi iniciada.');
+    resolveForecast({ ok: true, json: async () => forecast } as Response);
+    expect(await screen.findByRole('region', { name: /clima atual/i })).toBeInTheDocument();
+  });
+
   it('permite desambiguar cidades e abrir outra opção sem refazer a busca', async () => {
     const user = userEvent.setup();
     const fetchMock = installWeatherResponses();
@@ -102,6 +131,35 @@ describe('App', () => {
     expect(screen.getByText('64°F')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(await screen.findByRole('heading', { name: 'Buscas recentes' })).toBeInTheDocument();
+  });
+
+  it('permite repetir a consulta meteorológica após uma falha', async () => {
+    const user = userEvent.setup();
+    let weatherAttempts = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes('geocoding-api')) {
+          return {
+            ok: true,
+            json: async () => ({ results: [cities[0]] }),
+          } as Response;
+        }
+        weatherAttempts += 1;
+        return weatherAttempts === 1
+          ? ({ ok: false, json: async () => ({}) } as Response)
+          : ({ ok: true, json: async () => forecast } as Response);
+      }),
+    );
+    render(<App />);
+
+    await user.type(screen.getByRole('textbox', { name: /buscar cidade/i }), 'São Paulo');
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar o clima');
+
+    await user.click(screen.getByRole('button', { name: /tentar novamente/i }));
+    expect(await screen.findByRole('region', { name: /clima atual/i })).toBeInTheDocument();
+    expect(weatherAttempts).toBe(2);
   });
 
   it('repete a busca após erro de geocoding e mostra estado vazio quando não há cidade', async () => {
